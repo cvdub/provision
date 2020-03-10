@@ -1,0 +1,53 @@
+---
+- hosts: localhost
+  become: true
+  # remote_user: root
+
+  vars_prompt:
+    - name: user_password
+      prompt: "Enter desired user password"
+
+  tasks:
+    - name: Refresh pacman mirrors
+      pacman:
+        update_cache: yes
+
+    - name: Set the hostname
+      hostname:
+        name: "{{ hostname }}"
+
+    - name: Install Bash
+      pacman:
+        name:
+          - bash
+          - bash-completion
+        state: present
+
+    - name: Create user group
+      group:
+        name: "{{ user.group }}"
+        state: present
+
+    - name: Create user and assign to group
+      user:
+        name: "{{ user.name }}"
+        group: "{{ user.group }}"
+        password: "{{ user_password|password_hash('sha512) }}"
+
+    - name: Install sudo
+      pacman:
+        name: sudo
+        state: present
+
+    - name: Add user to wheel group
+      user:
+        name: "{{ user.name }}"
+        groups: wheel
+        append: yes
+
+    - name: Copy sudo configuration
+      template:
+        src: sudoers.j2
+        dest: /etc/sudoers
+        mode: 440
+        validate: 'visudo -cf %s'
